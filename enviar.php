@@ -1,4 +1,6 @@
 <?php
+include 'conexion.php';
+
 $status = ""; 
 $feedback = "";
 $nombre = ""; 
@@ -19,26 +21,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $feedback = "El formato del correo no es válido.";
     } else {
         
-        $fecha = date("Y-m-d H:i:s");
-        $registro = "[$fecha] Nuevo Mensaje:\n";
-        $registro .= "Nombre: $nombre\n";
-        $registro .= "Email: $email\n";
-        $registro .= "Mensaje: $mensaje\n";
-        $registro .= "-----------------------------------\n\n";
-        $destinatario = "gustavotorresc2001@gmail.com"; 
-        $asunto = "Contacto Web de: $nombre";
-        $headers = "From: web@tudominio.com\r\nReply-To: $email\r\n";
-        
-        @mail($destinatario, $asunto, $registro, $headers);
+        $stmt = $conn->prepare("INSERT INTO contactos (nombre, email, mensaje, fecha) VALUES (?, ?, ?, NOW())");
 
-        if (file_put_contents("mensajes_recibidos.txt", $registro, FILE_APPEND)) {
+        $stmt->bind_param("sss", $nombre, $email, $mensaje);
+
+        if ($stmt->execute()) {
             $status = "success";
-            $feedback = "¡Mensaje registrado en el sistema correctamente!";
+            $feedback = "¡Mensaje guardado en la base de datos correctamente!";
+            $destinatario = "gustavotorresc2001@gmail.com"; 
+            $asunto = "Nuevo contacto web de: $nombre";
+            $cuerpo = "Nombre: $nombre\nEmail: $email\nMensaje: $mensaje";
+            $headers = "From: no-reply@tudominio.com";
+            @mail($destinatario, $asunto, $cuerpo, $headers);
+            
         } else {
             $status = "error";
-            $feedback = "Error al guardar los datos en el servidor.";
+            $feedback = "Error al guardar en la base de datos: " . $stmt->error;
         }
+
+        $stmt->close();
     }
+    
+    $conn->close();
+
 } else {
     header("Location: contacto.html");
     exit();
@@ -53,6 +58,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Estado del Envío</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+    </style>
 </head>
 <body class="bg-white min-h-screen font-sans flex items-center justify-center p-4">
 
@@ -63,12 +77,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <i data-lucide="check" class="w-10 h-10"></i>
             </div>
             <h1 class="text-3xl font-bold text-slate-900 mb-2 tracking-tight">¡Exitoso!</h1>
-            <p class="text-slate-500 mb-8 text-lg">Tu mensaje ha sido guardado en la base de datos del servidor.</p>
+            <p class="text-slate-500 mb-8 text-lg">Tu mensaje ha sido guardado en la base de datos.</p>
             
             <div class="bg-slate-50 rounded-2xl p-6 text-left border border-slate-100 mb-8">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Resumen:</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Resumen Guardado:</p>
                 <div class="flex items-center gap-3 text-slate-700 mb-2 font-medium">
                     <i data-lucide="user" class="w-4 h-4 text-blue-500"></i> <?php echo $nombre; ?>
+                </div>
+                <div class="flex items-center gap-3 text-slate-700 mb-2 font-medium">
+                    <i data-lucide="mail" class="w-4 h-4 text-blue-500"></i> <?php echo $email; ?>
                 </div>
                 <div class="flex items-start gap-3 text-slate-600 italic text-sm mt-3 pt-3 border-t border-slate-200">
                     <i data-lucide="message-square" class="w-4 h-4 text-blue-500 mt-0.5"></i> 
